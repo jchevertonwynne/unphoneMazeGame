@@ -3,3 +3,5 @@
 [The unPhone](https://unphone.net/) is a iot device made by the University of Sheffield based off the ESP32
  
  This is a game using two unphones, where the players move through the maze by tilting the unPhones. Tilt data is sent between the unPhones via WiFi UDP packets.
+
+This project was made with [Sam Taylor](https://github.com/NotQuiteADeveloper)
