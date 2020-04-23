@@ -1,0 +1,195 @@
+MyProjectDocs.mkd: COM3505 project documentation
+===
+
+# Function documentation: 
+
+### void screenTouchVibrate():
+* Vibrates the unphone for 80ms 
+* Used to show touch resposiveness
+
+### void splashScreen():
+* Shows the title of the game when the device is turned on
+* Also calls the vibrate function
+
+### void IRAM_ATTR setupMenuButton1()
+* Function is stored directly on the unPhones RAM
+* Attached to unPhone::BUTTON1
+* Launches the game as the Server
+
+### void IRAM_ATTR setupMenuButton3()
+* Function is stored directly on the unPhones RAM
+* Attached to unPhone::BUTTON3
+* Launches the game as the Client
+
+### void showInstructionPage(Rectangle returnTouch)
+* Shows information regarding how to play the game
+* Displays the button to return to the main page
+
+### void showMainPage(Rectangle returnTouch)
+* Shows the text on the main page and fills the background
+* Displays the button to view the Instruction Page
+* Attaches the iterupts for the select player buttons (unPhone::BUTTON1/3)
+
+### void speedTouchHandler(TS_Point point, SpeedButton speedButtons[])
+* Called when a touch is registered in Speed Button Area Rectangle
+* Identifies which button was pressed and sets the player speed
+
+### void showSpeedButtons(SpeedButton speedButtons[])
+* Displays the speed buttons on the screen
+* Uses coordinates from the Rectangles to draw
+* Fills the currently selected speed in red
+
+### void showPlayerSelect(Rectangle serverBox, Rectangle clientBox)
+* Displays the player selected buttons on the screen (client/server)
+
+### void handleMainPage(TS_Point point, Rectangle serverBox, Rectangle clientBox, Rectangle speedArea, Rectangle returnTouch, SpeedButton speedButtons[], Page * currentPage){    
+* Called by setupPlayerType when a touch has been registered and the user is on the main page
+* Checks to see if the coordinates of the touch is inside any of the buttons
+* Calls required functions depending on the button pressed
+* Calls screenTouchVibrate to vibrate the unphone if a button is pressed
+
+### void handleInstructionsPage(TS_Point point, Rectangle serverBox, Rectangle clientBox, Rectangle returnTouch, SpeedButton speedButtons[], Page * currentPage)
+* Called by setupPlayerType when a touch has been registered and the user is on the instruction page
+* If the touch is inside the return button it will call showMainPage()
+* Calls screenTouchVibrate to vibrate the unphone if the return button is pressed
+
+### void setupPlayerType()
+* Called in setup() after the splash screen is finshed
+* Initilizes the touch screen buttons and provides their dimensions
+* Contains the primary menu loop which runs until the user has selected a player type
+* The touch screen buffer is cleared each loop to prevent old data being used
+* Detaches the unPhone::BUTTON1/3 player select functions once playerType is assigned
+
+### TS_Point touchScreenMap(TS_Point point)
+* Takes a point from the touch screen and maps it to the screen size
+* Corrects the point for the screens orientation
+
+### Rectangle - 
+* Small class for storing, displaying and intersection based logic
+
+### bool Rectangle::intersecting(Rectangle other) 
+* Checks if either rectangle are within the other
+
+### bool Rectangle::pointInRect(int a, int b) 
+* Checks if point is within bounds of the rectangle
+
+### bool inAnyRectangle(std::vector<Rectangle> rectangles, Rectangle player)
+* Check if a point is in any of the passed rectangles
+
+### void displayGameView() 
+* Draws the maze to the screen, with a message showing current speed
+
+### void displayPlayerMove(void *parameter)
+* Loop running on second core. when a move has been recieved the player's position is updated. Handles losses from going into red and wins from going into green. Semaphones are used to control access so that only the screen or the accelerometer can attempt to read from the bus at any time.
+
+### void checkWifiStatus()
+* For the client. if not connected to the unPhone maze server it will attempt to connect. This is slow but does eventually work.
+
+### void setupClient()
+* calls checkWifiStatus() and nothing else in the current iteration.
+
+### void loadWalls(std::vector<Rectangle> *vec, const unsigned int wallArray[48])
+* Maze walls are stored as two 48 length integer arrays. These represent normal white walls and bad red walls. An unsigned int has 32 bits, perfect for a 320x480 screen with a wall width of 10px. binary logic is used to extract bit values from each position and build walls if required. the passed vector is filled with these.
+
+### void showMaze(const unsigned int mWalls[2][48])
+* Empties the maze wall vectors and loads the normal and bad walls into their respective vectors.
+
+### void setupMaze()
+* Depending on which user was selected, a default maze is chosen.
+
+### void setupServer()
+* Setup as an access point and enable UDP.
+
+### void setup()
+* Power on unphone, make user select player type. Depending on player, choose appropriate setup. Load maze, display maze, take initial sensor reading and load displayPlayerMove onto the second core.
+
+### void primeSend()
+* Gets sensor readings and loads into sendBuffer
+
+### void loopClient()
+* Check if connected. Prepare buffer for sending and then send packet. If one is recieved back, display this update on the screen.
+
+### void loopServer() 
+* Check if packet recieved. If so, display on screen and send one back.
+
+### void loop()
+* Check if button 2 on front has been pressed in order to reset. Otherwise, call either client or server loop.
+
+# Development:
+
+## Bluetooth:
+It was originally our intention to use Bluetooth to handle communications between the two devices. Unfortunatly we struggled to get either of the two libraries we tested with to fulfil our requirements without introducing a high level of complexity to the application. We first attempted to use the standard Bluetooth library however after extensive testing we were unable to get the two devices to connect to one another. This may have due to the endian situation of the MAC addresses, but we're not sure.
+
+We then tried to use the Bluetooth Low Energy library due to the greater availibility of documentation and examples that showed it could connect the two unphones. The BLE libary uses a characteristics system to transfer data between the devices which is created by the server and and sent to the Client which can write data to it for the Server to handle. The limitiation of using BLE was that the Server was unable to read its own acceleromiters data while recieving the movement information from the Client. At first the Server would read its accelerometer data and send it to the Client successfully, however it would stop after a couple of seconds and the accelerometer would not read any information until the device had been fully power cycled.
+
+## Wifi UDP:
+This works by one unphone hosting a WiFi access point and the other connecting to it. A UDP connection is opened up on the server and the client attempts to send packets with its tilt information. If recived by the server, the packet is parsed and the move information is displayed. The server then sends back its own data for the client to do the same.
+
+This tends to work well, except for some delay that is introduced on the display of the client unphone when the client causes a loss on the server unphone's screen. We had this issue previously but the other way around and solved it by flushing any excess UDP packets. Sadly this did not work this time, so it's now a feature as extra punishment for losing.
+
+## Dual Core:
+We use the second core to update the game's display. This allows us to parallelise the sending/recieving of game packets with drawing the game, allowing for a smoother player experience. Sempaphores are used to control timing, so that the display only updates when a packet has been recieved and that the IC2 bus isn't blocked by attempts at using both the display and the accelerometer at the same time.
+
+## Power Consumption:
+Unfortunately due to time contraints we did not spend as much time as we'd like optimizing our game's efficiency. As we mentioned previously we attempted to use Bluetooth Low Energy to send movement information between the two unPhones. This was our first choice rather than WiFi UDP due to the reduced power consumption (around 10 - 30mA) and natural low range requirements given the nature of our game. Our final implemention which uses WiFi UDP has, comparatively, consumes more energy to run (80mA for server). We had planned some features to reduce the overall power consumption. One of these, an onChange system to only send data packets if the potential move would actually affect the position of the other player we did make some small progress on, however it became increasingly apparent that the time to implement would be greater then predicted. 
+
+#Testing:
+We performed user testing both with ourselves and with whoever else was around us in the diamond. Some people knew what our project was whereas others had no idea until given to them. Ideas about how the game was and what it maybe could do were passed back to us, considered and some were implemented.
+
+Below is some examples of the feedback we recieved and how we acted on it:
+- "It is too difficult to win the game"
+To resolve this issue which was reported by several users, we increased the size of the play area for the user to reduce the chance of them hitting a red block when moving at a high speed.
+
+- "The movement control does not feel natural"
+Initially we used a simple algorithm where the block would move in a direction if the tilt in that axis was over a threshold. This led to diagonal moves feeling janky and not representitive of how a real object would roll on a tilted plane. We revised how movement direction is calculated to a more accurate feeling alternative. Controls also have a deadzone in the middle where no movement can be detected, so slight tilts that are near flat don't make the player move.
+
+![image](directions.png)
+
+The picture above shows our new scheme (left) and the old (right). In the corners movement would happen in both directions, no matter how close to the edge. If tilted 1.1 to the right and 10,000 down it should realistically only move you down but in our case it moved you down and right. By using angles and restricting movement to distinct eights of space such corner issues can be sorted out.
+
+- "Sometimes the game lags a bit"
+This feedback was in response to an issue that was known to us at the time but we have not been able to resolve. It occurs when the client player causes a win or loss on the server unphone's screen. When this happens the game stops and draws a transition screen for roughly two seconds. During this time the client unphone is still sending UDP packets and we think these are causing a delay in reposonivenes as they build up in the buffer, however we have not been able to find or remove this despite attempting to flush excess packets. Beyond this we can't think of any other causes for the delay.
+
+- "There should be more levels"
+These aren't too hard to implement, it's just hard to think of good designs that are sufficiently different. We are limited to a 32x48 grid to represent the maze, starting in the top left and finishing in the bottom right. If the maze system was expanded upon it may be possible to provide alternate defaults for these, but this was outside the scope of the project considering everything else we had to do.
+
+# Future Development:
+
+A lot of the code could be split out into its own files/classes. For instance, the main menu code was initially quite small but ballooned a lot as we added more functionality. An object oriented approach here would result in more segmented and manageable code.
+
+To create mazes we used Excel. Cells were coloured in to represent walls, bad walls or empty space. A VBA script was then used to populate each cell with a 0 or 1 and then this was parsed using python to generate binary int strings. This process could be automated for easier creation of further mazes.
+
+As WiFi is used, almost any other device could be connected. This means that cross play between an unphone and a real phone could happen if an app was developed allowing for communication between the two devices.
+
+The menu system could offer more options for how the game is played. More control schemes such as inverted, one axis from each player, etc. This would improve the user experience by allowing them to make their own challenges.
+
+Currently there is a bug that could happen if the user gets to speed ~15, where the player will be able to phase through walls. However, I we don't think any player will even be good enough to do that, even if the maze design accomodated such a level of skillful play. If a player ever was that good, maybe they deserve the reward of making the game do funny things?
+
+The game could have more maze features added, such as:
+- Speed ups
+- Moving walls
+- Buttons to enable/disable walls
+- Scoreboard
+- Game timer
+- Zones that switch who controls the unphone's movement
+- Orchestral soundtrack
+
+# User Guide
+
+## The Maze Game:
+Our project is a multi-player game that utilizes two unphones. The players tilt their unphones to jointly navigate through a maze. In the default mode each player controls their own horizontal movement and controls the vertical movement of the other player. The easy mod means that each player controls all the movement on the other players device and none of their own. Regardless of the selected game mode, both players have to communicate with each other to ensure both players finish their mazes. As both players have to tilt their unphones, they have to make sure that they don't tilt so much that they make the game hard to see for the other player. Controlling just one of their axis each makes for a confusing gameplay experience and it's been very fun testing it.
+
+Our project is a multi-player game that utilizes two unphones. The players tilt their unphones to jointly navigate through a maze, with each player controlling their own horizontal movement and controlling the vertical movement of the other player. This means both players have to communicate with each other to ensure both players finish their mazes. As both players have to tilt their unphones, they have to make sure that they don't tilt so much that they make the game hard to see for the other player. Controlling just one of their axis each makes for a confusing gameplay experience and it's been very fun testing it.
+
+## Rules:
+* The goal of the game is to reach the green block at the end of the maze
+* Reaching the goal will increase the speed of the player for the next attempt
+* Touching a red block will cause the player to be reset to the start
+* If a player is reset tot the start by touching a red block they will loose speed
+* Players can configure their starting speed on the main menu
+
+
+
+
+
+

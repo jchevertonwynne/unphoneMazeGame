@@ -1,0 +1,22 @@
+MyProjectThing: COM3505 assessment 2 template
+===
+
+This is where to put your code and documentation for your COM3505 project.
+
+Put the code in either:
+
+- [main/main.cpp](main/main.cpp), an IDF style build, or
+- [sketch/sketch.ino](sketch/sketch.ino), an Arduino IDE sketch
+
+(On Linux or MacOS these can be the same thing, using symbolic links.)
+
+Put your documentation in [doc/MyProjectDocs.mkd](doc/MyProjectDocs.mkd).
+
+Note that the template includes references to lots and lots of libraries for
+the various project options. These live in `unphone/src` and `unphone/lib`,
+and are copied into `unphone/sdks/Arduino/libraries` to support the IDE. The
+files [Makefile](Makefile) and [main/component.mk](main/component.mk) in this
+template have to find those libraries via relative paths and/or environment
+variables. We assume that `unphone/` and your `com3505-2019-student/` repo
+directory are next to each other (and that `private.h` lives in the same
+place). If you move these, edit the paths accordingly.
